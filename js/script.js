@@ -50,6 +50,16 @@ if(Modernizr.webgl) {
 			maxZoom: 17, //
 		  attributionControl: false
 		});
+
+		var draw = new MapboxDraw({
+			displayControlsDefault: false,
+			controls: {
+			polygon: true,
+			trash: true
+			}
+		});
+		map.addControl(draw);
+
 		//add fullscreen option
 		map.addControl(new mapboxgl.FullscreenControl());
 
@@ -202,6 +212,30 @@ if(Modernizr.webgl) {
 					},
 					"filter": ["==", "lsoa11cd", ""]
 				}, 'place_suburb');
+
+
+				map.on('draw.create', function(e){
+
+						var userPolygon = e.features[0];
+						// generate bounding box from polygon the user drew
+						var polygonBoundingBox = turf.bbox(userPolygon);
+
+						var southWest = [polygonBoundingBox[0], polygonBoundingBox[1]];
+						var northEast = [polygonBoundingBox[2], polygonBoundingBox[3]];
+						var northEastPointPixel = map.project(northEast);
+						var southWestPointPixel = map.project(southWest);
+						var features = map.queryRenderedFeatures([southWestPointPixel, northEastPointPixel], { layers: ['lsoa-outlines'] });
+						var filter = features.reduce(function(memo, feature) {
+								if (! (undefined === turf.intersect(feature, userPolygon))) {
+										// only add the property, if the feature intersects with the polygon drawn by the user
+									memo.push(feature.properties.lsoa11cd);
+									console.log(feature.properties)
+								}
+										return memo;
+						}, []);
+						// console.log(filter)
+						map.setFilter("lsoa-outlines-hover", ['match',['get','lsoa11cd'],filter,true,false]);
+				});
 
 			//test whether ie or not
 			function detectIE() {
